@@ -31,7 +31,7 @@ def wrap_class(cls, **kwargs):
 
     @staticmethod
     def forward(ctx, values):
-      obj = cls(values.detach().numpy(), **kwargs)
+      obj = cls(values.detach().cpu().numpy(), **kwargs)
       ctx.numpy_obj = obj
       return torch.from_numpy(obj.compute())
 
