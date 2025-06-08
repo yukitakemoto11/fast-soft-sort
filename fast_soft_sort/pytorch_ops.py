@@ -31,13 +31,32 @@ def wrap_class(cls, **kwargs):
 
     @staticmethod
     def forward(ctx, values):
+      # 元のデバイス・dtype を保存
+      device = values.device
+      dtype = values.dtype
+
+      # NumpyOp のインスタンス化は必ず CPU 上で
       obj = cls(values.detach().cpu().numpy(), **kwargs)
       ctx.numpy_obj = obj
-      return torch.from_numpy(obj.compute())
+      ctx.device = device
+      ctx.dtype = dtype
+
+      # 結果を CPU numpy からテンソル化 → 元デバイス・dtype に戻す
+      result = torch.from_numpy(obj.compute())
+      return result.to(device=device, dtype=dtype)
 
     @staticmethod
     def backward(ctx, grad_output):
-      return torch.from_numpy(ctx.numpy_obj.vjp(grad_output.numpy()))
+      # grad_output は forward の出力と同じデバイス・dtype
+      device = ctx.device
+      dtype = ctx.dtype
+
+      # numpy_obj.vjp は CPU numpy を返す
+      grad_cpu = ctx.numpy_obj.vjp(grad_output.detach().cpu().numpy())
+
+      # CPU numpy → テンソル化 → GPU に戻す
+      grad_in = torch.from_numpy(grad_cpu)
+      return grad_in.to(device=device, dtype=dtype)
 
   return NumpyOpWrapper
 
